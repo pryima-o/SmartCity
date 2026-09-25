@@ -1,42 +1,30 @@
-import os
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, Integer, String, Text
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import Column, Integer, String, Text, text  # Добавили импорт text
 from pgvector.sqlalchemy import Vector
-
-
-load_dotenv()
-
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
-DB_NAME = os.getenv("DB_NAME")
-
-
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+from database import Base, engine
 
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
 
     id = Column(Integer, primary_key=True, index=True)
-    source_file = Column(String, nullable=False)  # Имя файла (например, "regulament_2025.pdf")
-    passage_id = Column(Integer, nullable=False)   # Порядковый номер абзаца для цитирования
-    text = Column(Text, nullable=False)            # Сам текст абзаца (на румынском или русском)
-    language = Column(String(5), nullable=False)   # "ro" или "ru"
+    source_file = Column(String, nullable=False)
+    passage_id = Column(Integer, nullable=False)
+    text = Column(Text, nullable=False)
+    language = Column(String(5), nullable=False)
     
-    # Векторное представление текста. 
-    # Размерность 768 используется, если выберете текстовые эмбеддинги от Google Gemini (text-embedding-004)
-    embedding = Column(Vector(768)) 
+    # Размерность 3072 под модель gemini-embedding-001
+    embedding = Column(Vector(3072)) 
 
 def init_db():
-    # Перед созданием таблиц нужно убедиться, что расширение pgvector включено в Postgres
+    """
+    Включает pgvector и создает таблицы в базе данных.
+    """
     with engine.connect() as conn:
-        conn.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+        # ИСПРАВЛЕНИЕ: Обернули текстовый запрос в функцию text()
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+        conn.commit()  # Явно сохраняем подключение расширения
     Base.metadata.create_all(bind=engine)
 
-
+if __name__ == "__main__":
+    print("Пересоздание/Инициализация структуры таблиц...")
+    init_db()
+    print("✅ Таблицы успешно созданы в БД SmartCity!")
