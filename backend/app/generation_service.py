@@ -2,12 +2,13 @@ import os
 from google import genai
 from google.genai import types
 from app.search_service import retrieve_relevant_chunks
+
 # Инициализируем клиента Gemini для работы с текстовой моделью
-client = genai.Client()
+client = genai.Client(http_options={'api_version': 'v1'})
 
 def answer_citizen_question(user_question: str) -> str:
     """
-    Полный RAG-цикл: ищет контекст в БД и генерирует строгий ответ через Gemini Flash.
+    Полный RAG-цикл: ищет контекст в БД и генерирует строгий ответ через Gemini Flash 3.8.
     """
     # 1. Извлекаем топ-3 релевантных пассажа из нашей базы данных PostgreSQL
     context_chunks = retrieve_relevant_chunks(user_query=user_question, limit=3)
@@ -28,7 +29,7 @@ def answer_citizen_question(user_question: str) -> str:
         "1. Отвечай на том языке, на котором задан вопрос (Romanian или Russian).\n"
         "2. Для каждого утверждения в ответе ОБЯЗАТЕЛЬНО указывай источник в формате [Название документа, Пассаж X] в конце предложения.\n"
         "3. Если в Контексте нет прямого ответа на вопрос, или если документов недостаточно, прямо ответь: "
-        "'Данной информации нет в официальных документах' и автоматически предложи обратиться на сайт chisinau.md.\n"
+        "'Данной информации нет в официальных документах' на языке запроса и автоматически предложи обратиться на сайт chisinau.md.\n"
         "4. Если документы противоречат друг другу, четко укажи на это противоречие.\n"
         "Строго запрещено выдумывать факты, которых нет в предоставленном тексте."
     )
@@ -37,13 +38,13 @@ def answer_citizen_question(user_question: str) -> str:
     prompt = f"КОНТЕКСТ ИЗ ОФИЦИАЛЬНЫХ ДОКУМЕНТОВ мэрии:\n{formatted_context}\n\nВОПРОС ГРАЖДАНИНА: {user_question}"
 
     try:
-        # Используем быструю и дешевую модель gemini-1.5-flash
+        # ИСПРАВЛЕНИЕ: Переключаемся на поддерживаемую модель поколения 2.x
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-3.8-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
-                temperature=0.0,  # Нулевая температура полностью убирает креативность и исключает галлюцинации
+                temperature=0.0,  # Нулевая температура исключает галлюцинации
             ),
         )
         return response.text
@@ -60,12 +61,12 @@ if __name__ == "__main__":
     print(f"Ответ ИИ:\n{answer_citizen_question(q1)}")
     
     # Тест 2: Вопрос на румынском языке
-    print("\n--- ТЕСТ 2 (Румынский запрос) ---")
+    print("\n--- ТЕСТ 2 (Румянский запрос) ---")
     q2 = "Cum pot solicita audiențe online la primărie?"
     print(f"Вопрос: {q2}")
     print(f"Ответ ИИ:\n{answer_citizen_question(q2)}")
 
-    # Тест 3: Проверка защиты от галлюцинаций (Вопрос, на который нет ответа в базе)
+    # Тест 3: Проверка защиты от галлюцинаций
     print("\n--- ТЕСТ 3 (Проверка галлюцинаций) ---")
     q3 = "Какая стоимость проезда в троллейбусе Кишинева?"
     print(f"Вопрос: {q3}")
