@@ -1,0 +1,86 @@
+services:
+
+  # 1. PostgreSQL + pgvector
+  db:
+    image: ankane/pgvector:latest
+    container_name: smartcity_db
+    restart: always
+
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+
+    networks:
+      - smartcity_network
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+
+  # 2. FastAPI backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: smartcity_backend
+    restart: always
+
+    volumes:
+      - ./backend:/app
+
+    environment:
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    networks:
+      - smartcity_network
+
+
+  # 3. Vue + Vite frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    container_name: smartcity_frontend
+    restart: always
+
+    ports:
+      - "6766:6766"
+
+    depends_on:
+      - backend
+
+    networks:
+      - smartcity_network
+
+
+volumes:
+  pgvector_data:
+
+
+networks:
+  smartcity_network:
+    driver: bridge

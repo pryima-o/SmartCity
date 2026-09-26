@@ -86,17 +86,19 @@ def parse_and_index_file(file_path: str):
 
             # Сохраняем объект в pgvector таблицу
             chunk = DocumentChunk(
-                source_file=source_file_name,  # Передаем домен (например chisinau.md) для инлайн-цитат фронтенда!
-                passage_id=actual_passage_id,      
+                source_file=source_file_name,
+                passage_id=actual_passage_id,
                 text=clean_text,
                 language=detected_lang,
                 embedding=embedding_vector
             )
-            
+
             db.add(chunk)
+            db.commit()
             uploaded_count += 1
-            
-            # Базовая задержка между пассажами, чтобы не раздражать API
+
+            print(f"✅ Пассаж №{actual_passage_id} сохранён в БД")
+
             time.sleep(2.5)
         
         # Фиксируем транзакцию в PostgreSQL

@@ -1,70 +1,169 @@
-import os
 from google import genai
 from google.genai import types
 from app.search_service import retrieve_relevant_chunks
-import time
 
-# Инициализируем клиента Gemini для работы с текстовой моделью
-client = genai.Client(http_options={'api_version': 'v1'})
+
+client = genai.Client(http_options={"api_version": "v1"})
+
+
+MODELS = [
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.1-flash-lite",
+]
+
 
 def answer_citizen_question(user_question: str) -> str:
-    """
-    Полный RAG-цикл: ищет контекст в БД и генерирует строгий ответ через Gemini Flash 3.8.
-    """
-    # 1. Извлекаем топ-3 релевантных пассажа из нашей базы данных PostgreSQL
-    context_chunks = retrieve_relevant_chunks(user_query=user_question, limit=3)
-    
-    if not context_chunks:
-        return "Îmi pare rău, nu am găsit documente relevante. / К сожалению, релевантных документов не найдено."
 
-    # 2. Форматируем контекст для ИИ с указанием метаданных для цитирования
-    formatted_context = ""
-    for chunk in context_chunks:
-        formatted_context += f"[Sursă: {chunk['source_file']}, Pasaj: {chunk['passage_id']}]\nТекст: {chunk['text']}\n\n"
+    # ==========================================================
+    # 1. RAG SEARCH
+    # ==========================================================
 
-    # 3. Жесткий системный промпт, полностью закрывающий критерии жюри хакатона
-    system_instruction = (
-        "Ты — официальный ИИ-ассистент мэрии Кишинева (Primăria Municipiului Chișinău).\n"
-        "Твоя задача — отвечать на вопросы граждан строго на основе предоставленного Контекста.\n"
-        "ПРАВИЛА:\n"
-        "1. Отвечай на том языке, на котором задан вопрос (Romanian или Russian).\n"
-        "2. Для каждого утверждения в ответе ОБЯЗАТЕЛЬНО указывай источник в формате [Название документа, Пассаж X] в конце предложения.\n"
-        "3. Если в Контексте нет прямого ответа на вопрос, или если документов недостаточно, прямо ответь: "
-        "'Данной информации нет в официальных документах' на языке запроса и автоматически предложи обратиться на сайт chisinau.md.\n"
-        "4. Если документы противоречат друг другу, четко укажи на это противоречие.\n"
-        "Строго запрещено выдумывать факты, которых нет в предоставленном тексте."
+    context_chunks = retrieve_relevant_chunks(
+        user_query=user_question,
+        limit=3
     )
 
-    # Собираем промпт
-    prompt = f"КОНТЕКСТ ИЗ ОФИЦИАЛЬНЫХ ДОКУМЕНТОВ мэрии:\n{formatted_context}\n\nВОПРОС ГРАЖДАНИНА: {user_question}"
+    if not context_chunks:
+        return (
+            "Данной информации нет в официальных документах.\n\n"
+            "Официальный сайт: chisinau.md"
+        )
 
-    # Набор моделей для резерва на случай перегрузки серверов Google
-    models_to_try = ['gemini-3.8-flash', 'gemini-2.0-flash', 'gemini-2.5-flash']
-    
-    for model_name in models_to_try:
-        # Делаем по 2 попытки на каждую модель с паузой
-        for attempt in range(2):
-            try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_instruction,
-                        temperature=0.0,  # Исключаем галлюцинации
+    # ==========================================================
+    # 2. CONTEXT
+    # ==========================================================
+
+    formatted_context = ""
+
+    for chunk in context_chunks:
+        formatted_context += (
+            f"[DOCUMENT: {chunk['source_file']}]\n"
+            f"[PASSAGE: {chunk['passage_id']}]\n"
+            f"[SIMILARITY: {chunk['similarity']:.3f}]\n"
+            f"{chunk['text']}\n\n"
+        )
+
+    # ==========================================================
+    # 3. SYSTEM INSTRUCTION
+    # ==========================================================
+
+    system_instruction = """
+Ты — официальный AI-ассистент муниципалитета Кишинева.
+
+Твоя задача — отвечать гражданам исключительно на основании
+предоставленного КОНТЕКСТА из официальных документов.
+
+ПРАВИЛА:
+
+1. Отвечай на языке вопроса:
+   - русский → русский
+   - румынский → румынский
+
+2. НИКОГДА не используй знания вне КОНТЕКСТА.
+
+3. Если в контексте нет достаточной информации для ответа,
+   прямо скажи:
+
+   "Данной информации нет в официальных документах."
+
+4. Если два или более документа содержат противоречащие
+   друг другу сведения, НЕ выбирай один из них самостоятельно.
+
+   Вместо этого укажи:
+
+   "В официальных документах обнаружено противоречие."
+
+   После этого кратко укажи оба варианта и их источники.
+
+5. Для каждого существенного утверждения указывай источник
+   в формате:
+
+   [document.md, Пассаж X]
+
+6. Используй ТОЛЬКО document и passage из КОНТЕКСТА.
+
+7. Не выдумывай:
+   - документы
+   - пассажи
+   - URL
+   - даты
+   - суммы
+   - адреса
+   - правила
+
+8. Отвечай кратко и непосредственно.
+   Не повторяй вопрос пользователя.
+
+9. Не используй Markdown-ссылки.
+
+10. В конце ответа НЕ добавляй отдельный список ссылок.
+    Источники будут добавлены системой автоматически.
+"""
+
+    prompt = f"""
+КОНТЕКСТ:
+
+{formatted_context}
+
+ВОПРОС ГРАЖДАНИНА:
+
+{user_question}
+"""
+
+    # ==========================================================
+    # 4. GENERATION
+    # ==========================================================
+
+    for model_name in MODELS:
+
+        try:
+
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+
+                    # Ключевая оптимизация latency/cost
+                    thinking_config=types.ThinkingConfig(
+                        thinking_level="low"
                     ),
-                )
-                return response.text  # Если получили успешный ответ — сразу отдаем его
-            except Exception as e:
-                error_str = str(e)
-                # Если сервак перегружен (ошибка 503 или лимиты), ждем и пробуем снова
-                if "503" in error_str or "demand" in error_str.lower() or "resource_exhausted" in error_str.lower():
-                    print(f"⚠️ Модель {model_name} перегружена. Попытка {attempt + 1}/2. Ждем 2 секунды...")
-                    time.sleep(2)
-                    continue
-                else:
-                    # Если ошибка критическая (например, модель физически отключена), переходим к следующей модели
-                    print(f"❌ Ошибка модели {model_name}: {error_str}. Пробуем резервную...")
-                    break
-                    
-    # Если перегружены вообще все доступные модели Google
-    return "Îmi pare rău, serverul este supraîncărcat. Vă rugăm să încercați din nou peste câteva secunde. / К сожалению, сервер перегружен. Пожалуйста, повторите запрос через несколько секунд."
+
+                    # Ограничиваем длину ответа
+                    max_output_tokens=500,
+                ),
+            )
+
+            answer = response.text
+
+            if answer and answer.strip():
+                return answer.strip()
+
+        except Exception as e:
+
+            error = str(e).lower()
+
+            print(
+                f"⚠️ Gemini {model_name} failed: {e}"
+            )
+
+            # При rate limit / overload сразу идём
+            # к следующей модели.
+            if (
+                "503" in error
+                or "429" in error
+                or "resource_exhausted" in error
+                or "overloaded" in error
+                or "demand" in error
+            ):
+                continue
+
+            # Любая другая ошибка модели тоже
+            # не должна ломать весь запрос.
+            continue
+
+    return (
+        "Сервис AI временно недоступен.\n"
+        "Пожалуйста, повторите запрос через несколько секунд."
+    )

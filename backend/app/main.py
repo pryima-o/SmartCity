@@ -187,7 +187,42 @@ def post_new_message(chat_id: str, payload: NewMessageRequest, db: Session = Dep
         db.commit()
 
     # 2. Вызываем движок Gemini
-    ai_raw_answer = answer_citizen_question(payload.content)
+    # 2. Получаем историю текущего чата
+    # 1. Получаем историю ДО сохранения текущего сообщения
+    history_messages = (
+        db.query(Message)
+        .filter(Message.chat_id == chat_id)
+        .order_by(Message.created_at.asc())
+        .all()
+    )
+
+    chat_history = [
+        {
+            "role": msg.role,
+            "content": msg.content
+        }
+        for msg in history_messages
+    ]
+
+    # 2. Сохраняем сообщение пользователя
+    if not payload.silent:
+        user_msg_id = f"msg_{uuid.uuid4().hex[:6]}"
+
+        user_message = Message(
+            id=user_msg_id,
+            chat_id=chat_id,
+            role="user",
+            content=payload.content
+        )
+
+        db.add(user_message)
+        db.commit()
+
+    # 3. Gemini получает историю + текущий вопрос
+    ai_raw_answer = answer_citizen_question(
+        user_question=payload.content,
+        chat_history=chat_history
+    )
 
     # 3. Ищем регуляркой цитаты вида [домен.md, Pasaj: X]
     found_sources = re.findall(r"\[([^,]+),\s*(?:Пассаж|Pasaj)\s*:?\s*(\d+)\]", ai_raw_answer, re.IGNORECASE)
@@ -257,13 +292,27 @@ def set_message_feedback(message_id: str, payload: FeedbackRequest, db: Session 
     db.commit()
     db.refresh(message)
 
+    # Приводим источники к единому формату фронтенда (title + url)
+    msg_sources = []
+    if message.sources:
+        seen_src = set()
+        for src in message.sources:
+            real_url = DOMAINS_URL_MAP.get(src.document.lower(), "https://chisinau.md")
+            src_key = (src.document, real_url)
+            if src_key not in seen_src:
+                seen_src.add(src_key)
+                msg_sources.append({
+                    "title": f"{src.document} ({src.passage})",
+                    "url": real_url
+                })
+
     return {
         "id": message.id,
         "role": message.role,
         "content": message.content,
         "feedback": message.feedback,
         "createdAt": message.created_at,
-        "sources": [{"document": src.document, "passage": src.passage} for src in message.sources]
+        "sources": msg_sources  # Теперь фронтенд отработает без ошибок валидации!
     }
 
 
@@ -359,32 +408,108 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
 
 @app.get("/v1/budget")
 def get_maintenance_budget():
+
+    monthly_requests = 50_000
+
+    # Estimated average usage per request
+    input_tokens_per_request = 1200
+    output_tokens_per_request = 250
+
+    total_input_tokens = (
+        monthly_requests *
+        input_tokens_per_request
+    )
+
+    total_output_tokens = (
+        monthly_requests *
+        output_tokens_per_request
+    )
+
+    # Gemini 3.8 Flash pricing through Dec 31, 2026
+    flash_input_cost = (
+        total_input_tokens / 1_000_000
+    ) * 0.75
+
+    flash_output_cost = (
+        total_output_tokens / 1_000_000
+    ) * 3.75
+
+    flash_total = (
+        flash_input_cost +
+        flash_output_cost
+    )
+
+    # Gemini 3.1 Flash-Lite
+    lite_input_cost = (
+        total_input_tokens / 1_000_000
+    ) * 0.25
+
+    lite_output_cost = (
+        total_output_tokens / 1_000_000
+    ) * 1.50
+
+    lite_total = (
+        lite_input_cost +
+        lite_output_cost
+    )
+
+    embedding_cost = 1.0
+
     return {
-        "currency": "USD", 
-        "estimated_monthly_requests": 50000,
-        "scenarios": [
-            {
-                "name": "External API (Google Gemini Hybrid)", 
-                "deployment_location": "Google Cloud Platform (EU)", 
-                "advantages": ["Высокое качество", "Низкая задержка"], 
-                "cost_breakdown": {
-                    "llm_api_tokens": 75.0, 
-                    "embedding_api_tokens": 15.0, 
-                    "database_hosting": 25.0, 
-                    "backend_hosting": 15.0
-                }, 
-                "total_estimated_monthly_cost": 130.0
-            }, 
-            {
-                "name": "Self-Hosted Model (Llama 3.1)", 
-                "deployment_location": "Local Data Center in Moldova", 
-                "advantages": ["100% конфиденциальность"], 
-                "cost_breakdown": {
-                    "gpu_server_rent": 350.0, 
-                    "database_hosting": 40.0, 
-                    "maintenance_and_devops": 0.0
-                }, 
-                "total_estimated_monthly_cost": 390.0
-            }
-        ]
+        "currency": "USD",
+        "monthly_requests": monthly_requests,
+
+        "usage_assumptions": {
+            "input_tokens_per_request":
+                input_tokens_per_request,
+            "output_tokens_per_request":
+                output_tokens_per_request
+        },
+
+        "external_api": {
+            "model": "Gemini 3.8 Flash",
+            "deployment": "Google Gemini API",
+            "input_cost": round(
+                flash_input_cost, 2
+            ),
+            "output_cost": round(
+                flash_output_cost, 2
+            ),
+            "embedding_cost": embedding_cost,
+            "estimated_monthly_ai_cost": round(
+                flash_total + embedding_cost, 2
+            ),
+            "frontend": 0,
+            "backend": 0,
+            "estimated_total": round(
+                flash_total + embedding_cost, 2
+            )
+        },
+
+        "cost_optimized": {
+            "model": "Gemini 3.1 Flash-Lite",
+            "input_cost": round(
+                lite_input_cost, 2
+            ),
+            "output_cost": round(
+                lite_output_cost, 2
+            ),
+            "embedding_cost": embedding_cost,
+            "estimated_monthly_ai_cost": round(
+                lite_total + embedding_cost, 2
+            ),
+            "frontend": 0,
+            "backend": 0,
+            "estimated_total": round(
+                lite_total + embedding_cost, 2
+            )
+        },
+
+        "self_hosted": {
+            "model": "Llama 3.x class model",
+            "deployment": "EU/Moldova data center",
+            "gpu_server": 350,
+            "database": 40,
+            "estimated_total": 390
+        }
     }

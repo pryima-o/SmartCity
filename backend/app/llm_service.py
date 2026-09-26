@@ -13,21 +13,24 @@ client = genai.Client()
 
 def get_embedding(text: str) -> list[float]:
     """
-    Превращает текст в вектор с помощью официального Gemini SDK.
+    Превращает текст в embedding размерности 768.
     """
     try:
-        safe_text = text.encode('utf-8', errors='ignore').decode('utf-8')
-        
+        safe_text = text.encode("utf-8", errors="ignore").decode("utf-8")
+
         response = client.models.embed_content(
             model="gemini-embedding-001",
-            contents=safe_text
+            contents=safe_text,
+            config={
+                "output_dimensionality": 768
+            }
         )
-        
-        # ИСПРАВЛЕНИЕ: Берем нулевой элемент списка и у него забираем .values
+
         return response.embeddings[0].values
+
     except Exception as e:
         print(f"Ошибка при генерации эмбеддинга через SDK: {e}")
-        return []
+        raise
 
 # Тест для проверки
 if __name__ == "__main__":
