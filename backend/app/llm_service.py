@@ -23,7 +23,7 @@ def get_embedding(text: str) -> list[float]:
             contents=safe_text
         )
         
-        # ИСПРАВЛЕНИЕ: Берем первый элемент из списка эмбеддингов и забираем его значения
+        # ИСПРАВЛЕНИЕ: Берем нулевой элемент списка и у него забираем .values
         return response.embeddings[0].values
     except Exception as e:
         print(f"Ошибка при генерации эмбеддинга через SDK: {e}")

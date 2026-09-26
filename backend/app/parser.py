@@ -63,5 +63,10 @@ def parse_and_index_file(file_path: str, language: str):
 
 
 if __name__ == "__main__":
-    # Точечный путь от папки backend/
-    parse_and_index_file("data/chisinau_docs/regulament.txt", language="ro")
+    # Динамически находим корень бэкенда (на уровень выше, чем app/)
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    
+    # Собираем точный абсолютный путь, который сработает и на ПК, и в Docker
+    target_file = BASE_DIR / "data" / "chisinau_docs" / "regulament.txt"
+    
+    parse_and_index_file(str(target_file), language="ro")

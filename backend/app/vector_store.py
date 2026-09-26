@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, text  # Добавили импорт text
 from pgvector.sqlalchemy import Vector
-from database import Base, engine
+from app.database import Base, engine
 
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
