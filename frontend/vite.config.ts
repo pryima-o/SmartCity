@@ -14,4 +14,8 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  server: {
+    port: "6766",
+    allowedHosts: ["churn-stage-starry.ngrok-free.dev", "localhost"],
+  }
 })

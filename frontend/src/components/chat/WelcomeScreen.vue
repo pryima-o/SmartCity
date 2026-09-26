@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineProps<{
-  locale: "RU" | "RO"
+  locale: "RU" | "RO" | "EN"
 }>()
 
 const emit = defineEmits<{
@@ -9,35 +9,43 @@ const emit = defineEmits<{
 
 const prompts = {
   RU: [
-    "Как получить муниципальную услугу?",
-    "Какие документы мне нужны?",
-    "Где находится ближайший муниципальный центр?",
+    "Как решить вопрос с городскими услугами?",
+    "Какие документы мне понадобятся?",
+    "Где найти нужное место в городе?",
   ],
   RO: [
-    "Cum pot obține un serviciu municipal?",
+    "Cum pot rezolva o problemă în oraș?",
     "De ce documente am nevoie?",
-    "Unde este cel mai apropiat centru municipal?",
+    "Unde pot găsi locul de care am nevoie?",
+  ],
+  EN: [
+    "How can I solve a city-related issue?",
+    "What documents will I need?",
+    "Where can I find the place I need?",
   ],
 }
 </script>
 
 <template>
   <div class="flex flex-1 flex-col items-center justify-center px-4">
-   
 
     <h2 class="text-2xl font-semibold tracking-tight">
       {{
         locale === "RU"
-          ? "Привет! Я муниципальный помощник"
-          : "Salut! Sunt asistentul tău municipal"
+          ? "Привет! Чем могу помочь?"
+          : locale === "RO"
+            ? "Salut! Cu ce te pot ajuta?"
+            : "Hi! How can I help?"
       }}
     </h2>
 
     <p class="mt-2 max-w-lg text-center text-sm text-muted-foreground">
       {{
         locale === "RU"
-          ? "Я помогу найти информацию о муниципальных услугах, документах, правилах и других городских вопросах."
-          : "Te pot ajuta să găsești informații despre servicii municipale, documente, reguli și alte întrebări despre oraș."
+          ? "Расскажи, что тебе нужно — помогу разобраться с городскими вопросами, найти нужную информацию или подсказать, куда обратиться."
+          : locale === "RO"
+            ? "Spune-mi de ce ai nevoie — te ajut să găsești informația potrivită, să rezolvi o problemă sau să afli unde trebuie să mergi."
+            : "Tell me what you need — I can help you find the right information, solve a city-related issue, or figure out where to go."
       }}
     </p>
 

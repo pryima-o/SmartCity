@@ -1,6 +1,6 @@
 import { ref } from "vue"
 
-export function useTypewriter(speed = 20) {
+export function useTypewriter(speed = 30) {
   const text = ref("")
   const isTyping = ref(false)
 
@@ -8,8 +8,8 @@ export function useTypewriter(speed = 20) {
     text.value = ""
     isTyping.value = true
 
-    for (let i = 0; i < value.length; i++) {
-      text.value += value[i]
+    for (const char of value) {
+      text.value += char
 
       await new Promise((resolve) => {
         setTimeout(resolve, speed)

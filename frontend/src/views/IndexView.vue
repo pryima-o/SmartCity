@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from "vue";
+import { ref, watch } from "vue";
 
 import ChatHeader from "@/components/chat/ChatHeader.vue";
 import WelcomeScreen from "@/components/chat/WelcomeScreen.vue";
@@ -8,13 +8,10 @@ import ChatInput from "@/components/chat/ChatInput.vue";
 
 import { useTypewriter } from "@/composables/useTypewriter";
 import { chatsApi } from "@/api/chats";
-import { useRoute } from "vue-router";
-const route = useRoute();
 interface Message {
   id: number;
   role: "user" | "assistant";
   content: string;
-  silent?: boolean; // Optional property to mark silent messages
 }
 
 const locale = ref<"RU" | "RO" | "EN">(
@@ -28,25 +25,15 @@ const messages = ref<Message[]>([]);
 const isLoading = ref(false);
 const categoryId = ref(null);
 const { text: typedText, isTyping, type } = useTypewriter(18);
-const chatId = ref<string | null>(null);
-  
+
 async function sendMessage(content: string) {
   if (isLoading.value || isTyping.value) {
     return;
   }
 
-  if (!chatId.value) {
-    console.error("Chat ID is missing");
-    return;
-  }
-
-  if (!content.trim()) {
-    return;
-  }
-
   console.log("Selected category ID:", categoryId.value, content);
 
-  // Сразу показываем сообщение пользователя
+  // User message
   messages.value.push({
     id: Date.now(),
     role: "user",
@@ -55,76 +42,73 @@ async function sendMessage(content: string) {
 
   isLoading.value = true;
 
-  const response = await chatsApi.sendMessage(
-    chatId.value,
-    content,
-  );
+  chatsApi
+    .create(content, categoryId.value)
+    .then(async (response) => {
+      const answer = response;
 
-  messages.value.push({
-    id: response.id,
-    role: "assistant",
-    content: response.content,
-  });
+    
+      isLoading.value = false;
 
-  isLoading.value = false;
+      console.log(answer);
 
-  if (!response) {
-    return;
-  }
-
-  console.log("Message response:", response);
-}
-
-function useSilentPrompt(prompt: string) {
-  console.log("d")
-  if (!chatId.value) {
-    console.error("Chat ID is missing");
-    return;
-  }
-  isLoading.value = true;
-  chatsApi.sendMessage(chatId.value, prompt).then((response) => {
-    messages.value.push({
-      id: response.id,
-      role: "assistant",
-      content: response.content,
-      silent: true, // Mark this message as silent
+      window.location.href = `/c/${answer.id}`;
+ 
+    })
+    .catch((error) => {
+      console.error("Error sending message:", error);
+      isLoading.value = false;
     });
-  }).catch((error) => {
-    console.error("Error sending silent prompt:", error);
-  });
+
+  //   // TODO:
+  //   // Здесь потом будет настоящий API request
+  //   await new Promise((resolve) => setTimeout(resolve, 1000))
+
+  //   const response =
+  //     locale.value === "RU"
+  //       ? "Чтобы получить муниципальную услугу, необходимо обратиться в соответствующее учреждение и предоставить необходимые документы."
+  //       : "Pentru a obține serviciul municipal, trebuie să contactați instituția corespunzătoare și să prezentați documentele necesare."
+
+  //   // Убираем typing indicator
+  //   isLoading.value = false
+
+  //   // Печатаем ответ
+  //   await type(response)
+
+  //   // После завершения typewriter сохраняем сообщение
+  //   messages.value.push({
+  //     id: Date.now(),
+  //     role: "assistant",
+  //     content: typedText.value,
+  // sources: [
+  //     {
+  //         url: 'https://chisinau.md',
+  //     }
+  // ]
+  //   })
+
+  //   typedText.value = ""
 }
-onMounted(async () => {
-  const id = route.params.id;
 
-  if (!id) {
-    return;
-  }
-
-  chatId.value = id as string;
-
-  const chat = await chatsApi.get(chatId.value);
-
-  if (!chat) {
-    return;
-  }
-
-  messages.value = await chatsApi.getMessages(chatId.value);
-
-  if (messages.value.length === 1) {
-    useSilentPrompt(messages.value[0].content);
-  }
-});
+function usePrompt(prompt: string) {
+  sendMessage(prompt);
+}
 </script>
 
 <template>
   <div class="flex h-screen flex-col bg-background">
-    <ChatHeader :locale="locale" @update:locale="locale = $event" :show-new-chat-button="true"/>
+    <ChatHeader :locale="locale" @update:locale="locale = $event" />
 
     <main class="flex min-h-0 flex-1 flex-col">
       <!-- Welcome -->
+      <WelcomeScreen
+        v-if="messages.length === 0"
+        :locale="locale"
+        @prompt="usePrompt"
+      />
 
       <!-- Chat -->
-      <div class="flex-1 overflow-y-auto">
+      <div v-else class="flex-1 overflow-y-auto">
         <MessageList
           :messages="messages"
           :is-loading="isLoading"
@@ -142,7 +126,7 @@ onMounted(async () => {
 
       <!-- Input -->
       <ChatInput
-        :is-first-message="false"
+        :is-first-message="true"
         :locale="locale"
         :is-loading="isLoading || isTyping"
         @send="sendMessage"
