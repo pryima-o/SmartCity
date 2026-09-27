@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { onMounted, ref, watch } from "vue";
 
 import ChatHeader from "@/components/chat/ChatHeader.vue";
 import WelcomeScreen from "@/components/chat/WelcomeScreen.vue";
@@ -59,40 +59,15 @@ async function sendMessage(content: string) {
       console.error("Error sending message:", error);
       isLoading.value = false;
     });
-
-  //   // TODO:
-  //   // Здесь потом будет настоящий API request
-  //   await new Promise((resolve) => setTimeout(resolve, 1000))
-
-  //   const response =
-  //     locale.value === "RU"
-  //       ? "Чтобы получить муниципальную услугу, необходимо обратиться в соответствующее учреждение и предоставить необходимые документы."
-  //       : "Pentru a obține serviciul municipal, trebuie să contactați instituția corespunzătoare și să prezentați documentele necesare."
-
-  //   // Убираем typing indicator
-  //   isLoading.value = false
-
-  //   // Печатаем ответ
-  //   await type(response)
-
-  //   // После завершения typewriter сохраняем сообщение
-  //   messages.value.push({
-  //     id: Date.now(),
-  //     role: "assistant",
-  //     content: typedText.value,
-  // sources: [
-  //     {
-  //         url: 'https://chisinau.md',
-  //     }
-  // ]
-  //   })
-
-  //   typedText.value = ""
 }
 
 function usePrompt(prompt: string) {
   sendMessage(prompt);
 }
+
+onMounted(() => {
+  document.title = "Smart City AI"
+})
 </script>
 
 <template>

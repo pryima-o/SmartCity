@@ -5,16 +5,20 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc -b && vite build",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@lucide/vue": "^1.48.0",
     "@tailwindcss/vite": "^4.3.3",
+    "@unovis/ts": "^1.7.0",
+    "@unovis/vue": "^1.7.0",
     "@vueuse/core": "^15.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-vue-next": "^1.0.0",
+    "marked": "^18.0.14",
+    "recharts": "^3.10.1",
     "reka-ui": "^2.10.5",
     "shadcn-vue": "^2.8.2",
     "tailwind-merge": "^3.7.0",

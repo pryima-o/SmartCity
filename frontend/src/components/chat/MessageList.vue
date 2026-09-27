@@ -4,11 +4,17 @@ import { ref, watch, nextTick } from "vue"
 import MessageBubble from "./MessageBubble.vue"
 import TypingIndicator from "./TypingIndicator.vue"
 
+interface Source {
+  url: string
+}
+
 interface Message {
   id: number
   role: "user" | "assistant"
   content: string
+  sources: Source[]
 }
+
 
 const props = defineProps<{
   messages: Message[]
