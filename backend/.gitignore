@@ -1,11 +1,35 @@
-# Секретные переменные окружения
+# Environment / secrets
 .env
+.env.*
+!.env.example
 
-# Виртуальное окружение Python
+# Python virtual environments
 venv/
+.venv/
+**/venv/
+**/.venv/
 
-# Кэш Python
+# Python cache
+__pycache__/
 **/__pycache__/
+*.py[cod]
 
-# Локальные базы данных (если создадутся внутри проекта)
+# Local databases / vector data
 chrome_db/
+.neon/
+
+# Node
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+**/dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
