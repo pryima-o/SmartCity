@@ -527,7 +527,7 @@ def set_message_feedback(
             detail="Оценивать можно только ответы ассистента"
         )
 
-    message.feedback = payload.type
+    message.feedback = payload.data
 
     db.commit()
     db.refresh(message)
