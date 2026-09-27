@@ -23,7 +23,7 @@ const emit = defineEmits<{
 
 <template>
   <header class="flex h-16 items-center justify-between border-b px-6">
-    <div class="flex gap-2">
+    <a href="/" class="flex gap-2">
       <img
         src="/assets/img/logo-rec.png"
         alt=""
@@ -42,7 +42,7 @@ const emit = defineEmits<{
   }}
 </p>
       </div>
-    </div>
+    </a>
 
     <div class="flex items-center gap-2">
       <!-- Language -->
@@ -85,6 +85,7 @@ const emit = defineEmits<{
         size="sm"
         class="flex items-center gap-1"
         v-if="showNewChatButton"
+        @click="$router.push('/')"
       >
         <SquarePen class="h-4 w-4" />
         <span class="mobile-hide">

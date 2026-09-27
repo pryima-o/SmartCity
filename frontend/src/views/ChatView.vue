@@ -67,6 +67,7 @@ async function sendMessage(content: string) {
   });
 
   isLoading.value = false;
+  isTyping.value = false;
 
   if (!response) {
     return;
@@ -89,6 +90,9 @@ function useSilentPrompt(prompt: string) {
       content: response.content,
       silent: true, // Mark this message as silent
     });
+
+    isTyping.value = false;
+    isLoading.value = false;
   }).catch((error) => {
     console.error("Error sending silent prompt:", error);
   });
@@ -113,6 +117,8 @@ onMounted(async () => {
   if (messages.value.length === 1) {
     useSilentPrompt(messages.value[0].content);
   }
+  
+  document.title = `Chat - ${chat.title}`;
 });
 </script>
 

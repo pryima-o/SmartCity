@@ -3,6 +3,7 @@
 import ChatView from "@/views/ChatView.vue"
 import NotFound from "@/views/NotFound.vue"
 import AuthView from "@/views/admin/AuthView.vue"
+import AdminStats from "@/views/admin/AdminStats.vue"
 const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -17,11 +18,7 @@ const router = createRouter({
       name: "chat",
       component: ChatView,
     },
-     {
-      path: "/scai-adm",
-      name: "admin",
-      component: AuthView,
-    },
+  
 
     {
       path: "/:pathMatch(.*)*",
