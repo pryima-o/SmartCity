@@ -1,0 +1,47 @@
+services:
+
+  # 1. FastAPI backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: smartcity_backend
+    restart: always
+
+    volumes:
+      - ./backend:/app
+
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+
+    ports:
+      - "8000:8000"
+
+    networks:
+      - smartcity_network
+
+
+  # 2. Vue + Vite frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    container_name: smartcity_frontend
+    restart: always
+
+    ports:
+      - "6766:6766"
+
+    depends_on:
+      - backend
+
+    networks:
+      - smartcity_network
+
+
+networks:
+  smartcity_network:
+    driver: bridge
